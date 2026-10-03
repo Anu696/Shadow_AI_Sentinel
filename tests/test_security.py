@@ -1,6 +1,7 @@
-from detect import detect_sensitive_data
-from risk_engine import calculate_risk
-from policy import apply_policy
+from app.detector import detect_sensitive_data
+from app.risk_engine import calculate_risk
+from app.policy import apply_policy
+from app.redactor import redact_data
 
 
 def test_normal_text():
@@ -10,8 +11,6 @@ def test_normal_text():
     findings = detect_sensitive_data(text)
 
     assert len(findings) == 0
-
-    print("PASS: Normal text")
 
 
 def test_email():
@@ -25,8 +24,6 @@ def test_email():
         for item in findings
     )
 
-    print("PASS: Email detection")
-
 
 def test_phone():
 
@@ -38,8 +35,6 @@ def test_phone():
         item["category"] == "phone"
         for item in findings
     )
-
-    print("PASS: Phone detection")
 
 
 def test_password():
@@ -53,52 +48,80 @@ def test_password():
         for item in findings
     )
 
-    print("PASS: Password detection")
-
 
 def test_risk_score():
 
     findings = [
-        {"category": "email"},
-        {"category": "phone"}
+        {
+            "category": "email",
+            "confidence": 0.85
+        },
+        {
+            "category": "phone",
+            "confidence": 1.0
+        }
     ]
 
     score = calculate_risk(findings)
 
-    assert score == 70
-
-    print("PASS: Risk calculation")
+    assert score == 50
 
 
 def test_block_policy():
 
-    action = apply_policy(85)
+    findings = [
+        {
+            "category": "password",
+            "confidence": 0.95
+        }
+    ]
+
+    score = calculate_risk(findings)
+
+    action = apply_policy(
+        score,
+        findings
+    )
 
     assert action == "BLOCK"
-
-    print("PASS: BLOCK policy")
 
 
 def test_redact_policy():
 
-    action = apply_policy(50)
+    findings = [
+        {
+            "category": "email",
+            "confidence": 0.85
+        }
+    ]
+
+    score = calculate_risk(findings)
+
+    action = apply_policy(
+        score,
+        findings
+    )
 
     assert action == "REDACT"
-
-    print("PASS: REDACT policy")
 
 
 def test_allow_policy():
 
-    action = apply_policy(10)
+    findings = []
+
+    score = calculate_risk(findings)
+
+    action = apply_policy(
+        score,
+        findings
+    )
 
     assert action == "ALLOW"
 
-    print("PASS: ALLOW policy")
-    
+
 def test_api_key():
 
-    text ="api_key=abcdefghijklmnop123456"
+    text = "api_key=abcdefghijklmnop123456"
 
     findings = detect_sensitive_data(text)
 
@@ -106,8 +129,6 @@ def test_api_key():
         item["category"] == "api_key"
         for item in findings
     )
-
-    print("PASS: API key detection")
 
 
 def test_jwt():
@@ -125,8 +146,6 @@ def test_jwt():
         for item in findings
     )
 
-    print("PASS: JWT detection")
-
 
 def test_bearer_token():
 
@@ -142,21 +161,29 @@ def test_bearer_token():
         for item in findings
     )
 
-    print("PASS: Bearer token detection")
+
+def test_ip_address():
+
+    text = "Server IP is 192.168.1.10"
+
+    findings = detect_sensitive_data(text)
+
+    assert any(
+        item["category"] == "ip_address"
+        for item in findings
+    )
 
 
-# Run all tests
+def test_redaction():
 
-test_normal_text()
-test_email()
-test_phone()
-test_password()
-test_risk_score()
-test_block_policy()
-test_redact_policy()
-test_allow_policy()
-test_api_key()
-test_jwt()
-test_bearer_token()
+    text = "My email is student@example.com"
 
-print("\nAll tests completed!")
+    findings = detect_sensitive_data(text)
+
+    safe_text = redact_data(
+        text,
+        findings
+    )
+
+    assert "student@example.com" not in safe_text
+    assert "[REDACTED_EMAIL]" in safe_text

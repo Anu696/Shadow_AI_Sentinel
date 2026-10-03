@@ -128,9 +128,10 @@ def scan_prompt(request: ScanRequest):
 
         else:
 
+            # BLOCK means the prompt must not continue
             safe_text = None
 
-        # Never return the actual sensitive values
+        # Never return actual sensitive values
         safe_findings = [
             {
                 "category": item["category"],
@@ -146,8 +147,7 @@ def scan_prompt(request: ScanRequest):
             "safe_text": safe_text
         }
 
-    except Exception as error:
-
+    except Exception:
         raise HTTPException(
             status_code=500,
             detail="Security scan failed"

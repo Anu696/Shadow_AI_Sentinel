@@ -8,6 +8,13 @@ HIGH_RISK_CATEGORIES = {
 }
 
 
+MEDIUM_RISK_CATEGORIES = {
+    "email",
+    "phone",
+    "ip_address"
+}
+
+
 def apply_policy(risk_score, findings):
 
     categories = {
@@ -15,12 +22,21 @@ def apply_policy(risk_score, findings):
         for item in findings
     }
 
+    # High-risk secrets
     if categories.intersection(
         HIGH_RISK_CATEGORIES
     ):
         return "BLOCK"
 
-    if risk_score >= 30:
+    # Medium-risk sensitive information
+    if categories.intersection(
+        MEDIUM_RISK_CATEGORIES
+    ):
         return "REDACT"
 
+    # Risk-based fallback
+    if risk_score >= 25:
+        return "REDACT"
+
+    # Low risk
     return "ALLOW"
