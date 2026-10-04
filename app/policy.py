@@ -1,3 +1,6 @@
+import os
+
+
 HIGH_RISK_CATEGORIES = {
     "api_key",
     "password",
@@ -15,6 +18,17 @@ MEDIUM_RISK_CATEGORIES = {
 }
 
 
+# Read configuration from environment
+REDACT_THRESHOLD = int(
+    os.getenv("REDACT_THRESHOLD", "25")
+)
+
+BLOCK_HIGH_RISK = os.getenv(
+    "BLOCK_HIGH_RISK",
+    "true"
+).lower() == "true"
+
+
 def apply_policy(risk_score, findings):
 
     categories = {
@@ -22,21 +36,23 @@ def apply_policy(risk_score, findings):
         for item in findings
     }
 
-    # High-risk secrets
-    if categories.intersection(
-        HIGH_RISK_CATEGORIES
+    # Block high-risk secrets when enabled
+    if (
+        BLOCK_HIGH_RISK
+        and categories.intersection(
+            HIGH_RISK_CATEGORIES
+        )
     ):
         return "BLOCK"
 
-    # Medium-risk sensitive information
+    # Redact medium-risk sensitive information
     if categories.intersection(
         MEDIUM_RISK_CATEGORIES
     ):
         return "REDACT"
 
-    # Risk-based fallback
-    if risk_score >= 25:
+    # Use configured threshold
+    if risk_score >= REDACT_THRESHOLD:
         return "REDACT"
 
-    # Low risk
     return "ALLOW"
