@@ -14,18 +14,12 @@ from app.violation_detector import detect_violations
 
 app = FastAPI(
     title="Shadow AI Security Engine",
-    description=(
-        "Sensitive data detection, risk analysis, "
-        "sentiment analysis and violation detection API"
-    ),
-    version="1.1"
+    description="API for detecting sensitive data and security violations.",
+    version="1.2"
 )
 
 
-# -----------------------------
 # Request Model
-# -----------------------------
-
 class ScanRequest(BaseModel):
     prompt: str = Field(
         ...,
@@ -34,19 +28,13 @@ class ScanRequest(BaseModel):
     )
 
 
-# -----------------------------
-# Finding Response Model
-# -----------------------------
-
+# Finding Model
 class Finding(BaseModel):
     category: str
     confidence: float = Field(ge=0.0, le=1.0)
 
 
-# -----------------------------
-# Scan Response Model
-# -----------------------------
-
+# Response Model
 class ScanResponse(BaseModel):
     risk_score: int = Field(ge=0, le=100)
     action: str
@@ -56,10 +44,7 @@ class ScanResponse(BaseModel):
     violation_detection: dict
 
 
-# -----------------------------
-# Home Endpoint
-# -----------------------------
-
+# Home Route
 @app.get("/")
 def home():
     return {
@@ -67,22 +52,15 @@ def home():
     }
 
 
-# -----------------------------
-# Health Check
-# -----------------------------
-
+# Health Check Route
 @app.get("/health")
 def health_check():
     return {
-        "status": "healthy",
-        "service": "security-engine"
+        "status": "healthy"
     }
 
 
-# -----------------------------
-# Scan Endpoint
-# -----------------------------
-
+# Main Security Scan Route
 @app.post("/scan", response_model=ScanResponse)
 def scan_prompt(request: ScanRequest):
 
@@ -98,21 +76,26 @@ def scan_prompt(request: ScanRequest):
         # 1. Detect sensitive information
         findings = detect_sensitive_data(prompt)
 
-        # 2. Calculate existing risk score
-        risk_score = calculate_risk(findings)
-
-        # 3. Apply existing security policy
-        action = apply_policy(risk_score, findings)
-
-        # 4. Detect sentiment
+        # 2. Analyze sentiment
         sentiment_result = analyze_sentiment(prompt)
 
-        # 5. Detect policy violations
+        # 3. Detect security violations
         violation_result = detect_violations(prompt)
 
-        # 6. Prevent known violations from continuing
-        # This is an additional block, without changing
-        # the existing policy implementation.
+        # 4. Calculate combined risk score
+        # Requires the updated risk_engine.py
+        risk_score = calculate_risk(
+            findings,
+            violation_result
+        )
+
+        # 5. Apply existing security policy
+        action = apply_policy(
+            risk_score,
+            findings
+        )
+
+        # 6. Block prompts containing detected violations
         if violation_result["is_violation"]:
             action = "BLOCK"
 
@@ -121,12 +104,15 @@ def scan_prompt(request: ScanRequest):
             safe_text = prompt
 
         elif action == "REDACT":
-            safe_text = redact_data(prompt, findings)
+            safe_text = redact_data(
+                prompt,
+                findings
+            )
 
         else:
             safe_text = None
 
-        # 8. Never expose actual sensitive values
+        # 8. Remove sensitive values from findings
         safe_findings = [
             {
                 "category": item["category"],
@@ -135,7 +121,7 @@ def scan_prompt(request: ScanRequest):
             for item in findings
         ]
 
-        # 9. Return combined results
+        # 9. Return complete scan results
         return {
             "risk_score": risk_score,
             "action": action,
@@ -153,3 +139,4 @@ def scan_prompt(request: ScanRequest):
             status_code=500,
             detail="Security scan failed"
         )
+
